@@ -12,16 +12,19 @@
       --accent:#60a5fa;
     }
     *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
-    html,body{height:100%}
+    html,body{height:100%; margin:0; padding:0;}
     body{
-      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
       color:var(--text);
       background:
         radial-gradient(1000px 700px at 20% 20%, rgba(96,165,250,.25), transparent 60%),
         radial-gradient(900px 700px at 80% 80%, rgba(255,255,255,.18), transparent 60%),
         linear-gradient(160deg, #0b1220, #0f172a 60%, #111827);
-      display:grid; place-items:center; padding:24px;
+      display:flex;
+      align-items:center;      /* center atas bawah */
+      justify-content:center;  /* center kanan kiri */
       -webkit-user-select:none; user-select:none;
+      padding:24px;
     }
     .card{
       width:min(560px, 92vw);
@@ -60,7 +63,7 @@
 <body>
   <main class="card" role="alert" aria-live="assertive">
     <h1 class="title">Anjay!</h1>
-    <p class="msg"><strong>SALAH LAGI?</strong> Wah, spektakuler — kamu sukses tekan tombol SALAH berkali-kali. Coba pakai otak, bukan nebak-nebak random. 😏</p>
+    <p class="msg"><strong>SALAH??!!</strong> Wah, spektakuler — kamu sukses tekan tombol SALAH berkali-kali. Coba pakai otak, bukan nebak-nebak random. 😏</p>
 
     <a class="btn" href="index.html" title="Kembali ke halaman login">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -69,7 +72,7 @@
       Coba Lagi ke Login
     </a>
 
-    <div class="hint">Lupa password? Tenang — hubungi Developer kalau mau selamat dari kehancuran jari ketikmu.</div>
+    <div class="hint">Lupa password? Tenang — hubungi Developer kalau mau selamat dari kehancuran jarimu.</div>
   </main>
 </body>
 </html>
