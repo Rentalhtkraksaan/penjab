@@ -612,10 +612,10 @@
             }
 
             // Hitung dan tampilkan keuntungan ketua
-            const chairProfit = totalSoldUnits * 1000;
+            const chairProfit = totalSoldUnits * 500;
             
             totalSellerProfitElement.innerHTML = `Total Keuntungan Penjual: <strong>${formatRupiah(totalSellerProfit)}</strong>`;
-            totalChairProfitElement.innerHTML = `Keuntungan Ketua (Rp 1.000/unit): <strong>${formatRupiah(chairProfit)}</strong>`;
+            totalChairProfitElement.innerHTML = `Keuntungan Ketua (Rp 500/unit): <strong>${formatRupiah(chairProfit)}</strong>`;
         } else {
             individualSellerProfitList.innerHTML = '';
             totalSellerProfitElement.textContent = `Terdapat input yang tidak valid!`;
@@ -701,10 +701,10 @@
                 if (soldUnits > 0) {
                     const totalUnitsInStock = uniqueProducts[product].totalUnit;
                     const share = productData.jumlahUnit / totalUnitsInStock;
-                    const sellerShareOfTotalSales = share * soldUnits * productData.hargaSatuan;
+                    const sellerShareOfTotalSales = share * soldUnits * (productData.hargaSatuan - 500);
                     
                     sellerProfit += sellerShareOfTotalSales;
-                    totalChairProfit += soldUnits * 1000;
+                    totalChairProfit += soldUnits * 500;
                 }
             }
             if (sellerProfit > 0) {
@@ -714,30 +714,33 @@
         
         // Buat baris data untuk CSV
         Object.values(allDataCache).forEach(anggota => {
-            if (selectedDate === '' || anggota.tanggal === selectedDate) {
-                if (anggota.katalogProduk && anggota.katalogProduk.length > 0) {
-                    anggota.katalogProduk.forEach(produk => {
-                        const productNameLower = produk.namaProduk.toLowerCase();
-                        const soldUnits = soldUnitsByProduct[productNameLower] || 0;
-                        
-                        // Perhitungan keuntungan penjual untuk baris ini
-                        const totalUnitsInStock = uniqueProducts[productNameLower]?.totalUnit || 1;
-                        const share = produk.jumlahUnit / totalUnitsInStock;
-                        const sellerProfitPerItem = share * soldUnits * produk.hargaSatuan;
+    if (selectedDate === '' || anggota.tanggal === selectedDate) {
+        if (anggota.katalogProduk && anggota.katalogProduk.length > 0) {
+            anggota.katalogProduk.forEach(produk => {
+                const productNameLower = produk.namaProduk.toLowerCase();
+                const soldUnits = soldUnitsByProduct[productNameLower] || 0;
 
-                        const row = [
-                            `"${anggota.namaLengkap}"`,
-                            `"${produk.namaProduk}"`,
-                            produk.hargaSatuan,
-                            soldUnits,
-                            sellerProfitPerItem,
-                            soldUnits * 1000
-                        ].join(";");
-                        csv += row + "\n";
-                    });
-                }
-            }
-        });
+                // kalau tidak ada penjualan, skip
+                if (soldUnits === 0) return;
+                
+                // Hitung keuntungan penjual & ketua
+                const sellerProfit = (produk.hargaSatuan - 500) * soldUnits;
+                const chairProfit = 500 * soldUnits;
+
+                const row = [
+                    `"${anggota.namaLengkap}"`,
+                    `"${produk.namaProduk}"`,
+                    produk.hargaSatuan,
+                    soldUnits,
+                    sellerProfit,   // sudah harga - 500
+                    chairProfit
+                ].join(";");
+                csv += row + "\n";
+            });
+        }
+    }
+});
+
 
         // Tambahkan ringkasan total di akhir file
         csv += "\n\nTotal Keuntungan Penjual;" + Object.values(individualProfits).reduce((sum, val) => sum + val, 0) + ";\n";
