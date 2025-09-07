@@ -604,7 +604,7 @@
             }
 
             // Tampilkan keuntungan masing-masing penjual
-            individualSellerProfitList.innerHTML = '<h4>Keuntungan Tiap Penjual:</h4>';
+            individualSellerProfitList.innerHTML = '<h4>Keuntungan Kotor Tiap Penjual:</h4>';
             for (const seller in individualProfits) {
                 const profitItem = document.createElement('li');
                 profitItem.textContent = `${seller}: ${formatRupiah(individualProfits[seller])}`;
@@ -614,7 +614,7 @@
             // Hitung dan tampilkan keuntungan ketua
             const chairProfit = totalSoldUnits * 500;
             
-            totalSellerProfitElement.innerHTML = `Total Keuntungan Penjual: <strong>${formatRupiah(totalSellerProfit)}</strong>`;
+            totalSellerProfitElement.innerHTML = `Total Keuntungan Kotor Penjual: <strong>${formatRupiah(totalSellerProfit)}</strong>`;
             totalChairProfitElement.innerHTML = `Keuntungan Ketua (Rp 500/unit): <strong>${formatRupiah(chairProfit)}</strong>`;
         } else {
             individualSellerProfitList.innerHTML = '';
