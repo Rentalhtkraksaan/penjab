@@ -379,7 +379,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
     <script>
-    // Konfigurasi Firebase
+    // === KONFIGURASI FIREBASE ===
     const firebaseConfig = {
         apiKey: "AIzaSyDpPEkKbEt6b_v2OWlBfGuaVQpBg2-RWR4",
         authDomain: "cwu-gen-2.firebaseapp.com",
@@ -391,13 +391,12 @@
         measurementId: "G-S8D7DFJ1G3"
     };
 
-    // Inisialisasi Firebase
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     const dataRef = database.ref('dataAnggota/');
     const configRef = database.ref('konfigurasi/');
 
-    // Mendapatkan elemen HTML
+    // Elemen DOM
     const loadingElement = document.getElementById('loading');
     const dataTable = document.getElementById('dataTable');
     const tableBody = dataTable.querySelector('tbody');
@@ -416,24 +415,58 @@
     const totalChairProfitElement = document.getElementById('totalChairProfit');
     const toggleFormBtn = document.getElementById('toggleFormBtn');
 
-    // Cache untuk menyimpan data dari Firebase
+    // Cache data
     let allDataCache = {};
-    let soldUnitsByProduct = {}; // Tambahkan cache untuk unit terjual
-    let uniqueProducts = {}; // Tambahkan cache untuk produk unik
-    let sellerProducts = {}; // Tambahkan cache untuk produk penjual
+    let soldUnitsByProduct = {};
+    let uniqueProducts = {};
+    let sellerProducts = {};
 
-    // Fungsi untuk memformat tanggal ke format lokal
-    function formatDate(date) {
-        const options = { day: 'numeric', month: 'long', year: 'numeric' };
-        return new Date(date).toLocaleDateString('id-ID', options);
+    // Format tanggal & rupiah
+    const formatDate = (d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const formatRupiah = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
+
+    // === SIMPAN DATA TERJUAL KE FIREBASE ===
+    function saveSoldItemToDatabase(productName, soldUnits, hargaSatuan) {
+        const selectedDate = filterTanggalSelect.value || 'tanpa_tanggal';
+        const totalHarga = soldUnits * hargaSatuan;
+        const waktuUpdate = new Date().toISOString();
+
+        const soldRef = database.ref(`barangTerjual/${selectedDate}/${productName}`);
+        soldRef.set({
+            namaProduk: productName,
+            jumlahTerjual: soldUnits,
+            hargaSatuan: hargaSatuan,
+            totalHarga: totalHarga,
+            waktuUpdate: waktuUpdate
+        }).then(() => {
+            console.log(`✅ ${productName} tersimpan: ${soldUnits} unit (${formatRupiah(totalHarga)})`);
+        }).catch((error) => {
+            console.error('❌ Gagal simpan:', error);
+        });
     }
 
-    // Fungsi untuk memformat angka ke format Rupiah
-    function formatRupiah(number) {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+    // === MUAT DATA TERJUAL DARI FIREBASE ===
+    function loadSoldItemsFromDatabase(sellerData, products) {
+        const selectedDate = filterTanggalSelect.value || 'tanpa_tanggal';
+        const soldRef = database.ref(`barangTerjual/${selectedDate}`);
+
+        soldRef.once('value').then(snapshot => {
+            const soldData = snapshot.val() || {};
+            document.querySelectorAll('.jumlah-terjual').forEach(input => {
+                const productName = input.getAttribute('data-product-name');
+                if (soldData[productName]) {
+                    const jumlah = soldData[productName].jumlahTerjual || 0;
+                    input.value = jumlah;
+                }
+            });
+            calculateProfits(sellerData, products);
+            console.log('✅ Data terjual dimuat dari Firebase');
+        }).catch(error => {
+            console.error('❌ Gagal memuat data terjual:', error);
+        });
     }
 
-    // Fungsi utama untuk merender tabel data
+    // === RENDER TABEL DATA ===
     function renderTable(data, filterDate = '') {
         tableBody.innerHTML = '';
         let isDataFound = false;
@@ -441,7 +474,6 @@
         uniqueProducts = {};
         sellerProducts = {};
 
-        // Cek apakah data kosong atau tidak
         if (!data || Object.keys(data).length === 0) {
             loadingElement.textContent = `Belum ada data sama sekali.`;
             loadingElement.style.display = 'block';
@@ -451,13 +483,9 @@
             return;
         }
 
-        // Looping melalui setiap anggota
         Object.values(data).forEach(anggota => {
-            // Filter berdasarkan tanggal jika ada
             if (filterDate === '' || anggota.tanggal === filterDate) {
                 const hasImage = anggota.uploadImageCheck || false;
-                
-                // Cek apakah anggota punya katalog produk
                 if (anggota.katalogProduk && anggota.katalogProduk.length > 0) {
                     if (!sellerProducts[anggota.namaLengkap]) {
                         sellerProducts[anggota.namaLengkap] = {};
@@ -466,9 +494,8 @@
                     anggota.katalogProduk.forEach((produk, produkIndex) => {
                         const totalPerBaris = produk.jumlahUnit * produk.hargaSatuan;
                         grandTotal += totalPerBaris;
-
-                        // Mengumpulkan produk unik untuk form penjualan
                         const productName = produk.namaProduk.toLowerCase();
+
                         if (!uniqueProducts[productName]) {
                             uniqueProducts[productName] = {
                                 namaProduk: produk.namaProduk,
@@ -477,8 +504,7 @@
                             };
                         }
                         uniqueProducts[productName].totalUnit += produk.jumlahUnit;
-                        
-                        // Menambahkan produk ke data penjual
+
                         if (!sellerProducts[anggota.namaLengkap][productName]) {
                             sellerProducts[anggota.namaLengkap][productName] = {
                                 namaProduk: produk.namaProduk,
@@ -487,9 +513,7 @@
                             };
                         }
                         sellerProducts[anggota.namaLengkap][productName].jumlahUnit += produk.jumlahUnit;
-                        
 
-                        // Membuat baris baru di tabel
                         const newRow = document.createElement('tr');
                         newRow.innerHTML = `
                             <td><input type="checkbox" data-key="${anggota.key}" data-index="${produkIndex}"></td>
@@ -506,13 +530,13 @@
             }
         });
 
-        // Menampilkan atau menyembunyikan elemen
         if (isDataFound) {
             loadingElement.style.display = 'none';
             dataTable.style.display = 'table';
             totalOverallElement.innerHTML = `Total Keseluruhan: <strong>${formatRupiah(grandTotal)}</strong>`;
             totalOverallElement.style.display = 'block';
             renderSoldItemsForm(uniqueProducts, sellerProducts);
+            loadSoldItemsFromDatabase(sellerProducts, uniqueProducts); // ⬅️ tambahkan di sini
         } else {
             loadingElement.textContent = `Belum ada data untuk tanggal ini.`;
             loadingElement.style.display = 'block';
@@ -522,7 +546,7 @@
         }
     }
 
-    // Fungsi untuk merender form item terjual
+    // === RENDER FORM PENJUALAN ===
     function renderSoldItemsForm(products, sellerData) {
         const productArray = Object.values(products);
         if (productArray.length > 0) {
@@ -533,40 +557,43 @@
                 productItem.classList.add('sold-item');
                 productItem.innerHTML = `
                     <label>${product.namaProduk} (${product.totalUnit} unit):</label>
-                    <input type="number" 
-                           class="jumlah-terjual" 
-                           min="0" 
-                           max="${product.totalUnit}" 
-                           value="0" 
+                    <input type="number"
+                           class="jumlah-terjual"
+                           min="0"
+                           max="${product.totalUnit}"
+                           value="0"
                            data-harga-satuan="${product.hargaSatuan}"
                            data-product-name="${product.namaProduk.toLowerCase()}">
                 `;
                 soldItemsList.appendChild(productItem);
             });
-            
-            // Panggil fungsi calculateProfits setiap kali input berubah
+
             soldItemsList.querySelectorAll('.jumlah-terjual').forEach(input => {
-                input.addEventListener('input', () => calculateProfits(sellerData, products));
+                input.addEventListener('input', (e) => {
+                    const soldUnits = parseInt(e.target.value) || 0;
+                    const hargaSatuan = parseInt(e.target.getAttribute('data-harga-satuan'));
+                    const productName = e.target.getAttribute('data-product-name');
+                    calculateProfits(sellerData, products);
+                    saveSoldItemToDatabase(productName, soldUnits, hargaSatuan);
+                });
             });
-            
-            // Panggil sekali saat form dirender untuk inisialisasi
+
             calculateProfits(sellerData, products);
         } else {
             soldItemsForm.style.display = 'none';
         }
     }
 
-    // Fungsi untuk menghitung keuntungan
+    // === HITUNG KEUNTUNGAN ===
     function calculateProfits(sellerData, totalProducts) {
         soldUnitsByProduct = {};
         let isValid = true;
         let totalSoldUnits = 0;
-        
+
         soldItemsList.querySelectorAll('.jumlah-terjual').forEach(input => {
             const value = parseInt(input.value) || 0;
             const maxUnits = parseInt(input.getAttribute('max'));
             const productName = input.getAttribute('data-product-name');
-            
             if (value > maxUnits) {
                 input.classList.add('input-error');
                 isValid = false;
@@ -580,19 +607,15 @@
         if (isValid) {
             const individualProfits = {};
             let totalSellerProfit = 0;
-            
-            // Hitung keuntungan untuk setiap penjual
+
             for (const seller in sellerData) {
                 let sellerProfit = 0;
                 for (const product in sellerData[seller]) {
                     const productData = sellerData[seller][product];
                     const soldUnits = soldUnitsByProduct[product] || 0;
-                    
                     if (soldUnits > 0) {
                         const totalUnitsInStock = totalProducts[product].totalUnit;
                         const share = productData.jumlahUnit / totalUnitsInStock;
-                        
-                        // Keuntungan penjual dihitung dari harga jual total dari unit yang terjual
                         const sellerShareOfTotalSales = share * soldUnits * productData.hargaSatuan;
                         sellerProfit += sellerShareOfTotalSales;
                     }
@@ -603,17 +626,14 @@
                 }
             }
 
-            // Tampilkan keuntungan masing-masing penjual
             individualSellerProfitList.innerHTML = '<h4>Keuntungan Kotor Tiap Penjual:</h4>';
             for (const seller in individualProfits) {
-                const profitItem = document.createElement('li');
-                profitItem.textContent = `${seller}: ${formatRupiah(individualProfits[seller])}`;
-                individualSellerProfitList.appendChild(profitItem);
+                const li = document.createElement('li');
+                li.textContent = `${seller}: ${formatRupiah(individualProfits[seller])}`;
+                individualSellerProfitList.appendChild(li);
             }
 
-            // Hitung dan tampilkan keuntungan ketua
             const chairProfit = totalSoldUnits * 500;
-            
             totalSellerProfitElement.innerHTML = `Total Keuntungan Kotor Penjual: <strong>${formatRupiah(totalSellerProfit)}</strong>`;
             totalChairProfitElement.innerHTML = `Keuntungan Ketua (Rp 500/unit): <strong>${formatRupiah(chairProfit)}</strong>`;
         } else {
@@ -623,189 +643,76 @@
         }
     }
 
-    // Event listener untuk tombol dan select
+    // === EVENT ===
     setTanggalBtn.addEventListener('click', () => {
         const selectedDate = tglAcaraInput.value;
         if (selectedDate) {
-            const formattedDate = formatDate(selectedDate);
-            configRef.update({ tanggalAcara: formattedDate })
-                .then(() => alert(`Tanggal acara berhasil diatur menjadi ${formattedDate}`))
-                .catch((error) => alert('Gagal mengatur tanggal: ' + error.message));
-        } else {
-            alert('Silakan pilih tanggal terlebih dahulu.');
-        }
+            const formatted = formatDate(selectedDate);
+            configRef.update({ tanggalAcara: formatted })
+                .then(() => alert(`Tanggal acara berhasil diatur menjadi ${formatted}`))
+                .catch((e) => alert('Gagal mengatur tanggal: ' + e.message));
+        } else alert('Silakan pilih tanggal terlebih dahulu.');
     });
 
     toggleFormBtn.addEventListener('click', () => {
         configRef.once('value', (snapshot) => {
-            const currentStatus = snapshot.val()?.formStatus || false;
-            configRef.update({ formStatus: !currentStatus })
-                .then(() => alert(`Formulir berhasil di${!currentStatus ? 'nyalakan' : 'matikan'}.`))
-                .catch((error) => alert('Gagal mengubah status formulir: ' + error.message));
+            const current = snapshot.val()?.formStatus || false;
+            configRef.update({ formStatus: !current })
+                .then(() => alert(`Formulir berhasil di${!current ? 'nyalakan' : 'matikan'}.`))
+                .catch((e) => alert('Gagal mengubah status: ' + e.message));
         });
     });
 
     selectAllCheckbox.addEventListener('change', (e) => {
-        const checkboxes = tableBody.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(checkbox => checkbox.checked = e.target.checked);
+        const checks = tableBody.querySelectorAll('input[type="checkbox"]');
+        checks.forEach(c => c.checked = e.target.checked);
     });
 
     deleteSelectedBtn.addEventListener('click', () => {
-        const selectedCheckboxes = tableBody.querySelectorAll('input[type="checkbox"]:checked');
-        if (selectedCheckboxes.length === 0) {
-            alert('Pilih setidaknya satu data untuk dihapus.');
-            return;
-        }
-
-        if (confirm(`Apakah Anda yakin ingin menghapus ${selectedCheckboxes.length} data terpilih?`)) {
-            const updates = {};
-            selectedCheckboxes.forEach(checkbox => {
-                const key = checkbox.dataset.key;
-                const index = parseInt(checkbox.dataset.index);
-                
-                if (allDataCache[key]) {
-                    const updatedKatalog = [...allDataCache[key].katalogProduk];
-                    updatedKatalog.splice(index, 1);
-                    
-                    if (updatedKatalog.length > 0) {
-                        updates[`/dataAnggota/${key}/katalogProduk`] = updatedKatalog;
-                    } else {
-                        updates[`/dataAnggota/${key}`] = null;
-                    }
-                }
-            });
-            
-            database.ref().update(updates)
-                .then(() => alert('Data berhasil dihapus.'))
-                .catch(error => alert('Gagal menghapus data: ' + error.message));
-        }
-    });
-
-    exportBtn.addEventListener('click', () => {
-        // Headers untuk file CSV
-        const headers = ["Nama Lengkap", "Nama Produk", "Harga Satuan", "Jumlah Laku", "Keuntungan Penjual", "Keuntungan Ketua"];
-        let csv = headers.join(";") + "\n";
-        
-        const selectedDate = filterTanggalSelect.value;
-        
-        // Hitung keuntungan setiap penjual
-        const individualProfits = {};
-        let totalChairProfit = 0;
-
-        for (const seller in sellerProducts) {
-            let sellerProfit = 0;
-            for (const product in sellerProducts[seller]) {
-                const productData = sellerProducts[seller][product];
-                const soldUnits = soldUnitsByProduct[product] || 0;
-                
-                if (soldUnits > 0) {
-                    const totalUnitsInStock = uniqueProducts[product].totalUnit;
-                    const share = productData.jumlahUnit / totalUnitsInStock;
-                    const sellerShareOfTotalSales = share * soldUnits * (productData.hargaSatuan - 500);
-                    
-                    sellerProfit += sellerShareOfTotalSales;
-                    totalChairProfit += soldUnits * 500;
-                }
+        const selected = tableBody.querySelectorAll('input[type="checkbox"]:checked');
+        if (!selected.length) return alert('Pilih setidaknya satu data.');
+        if (!confirm(`Yakin hapus ${selected.length} data?`)) return;
+        const updates = {};
+        selected.forEach(cb => {
+            const key = cb.dataset.key;
+            const index = parseInt(cb.dataset.index);
+            if (allDataCache[key]) {
+                const updated = [...allDataCache[key].katalogProduk];
+                updated.splice(index, 1);
+                if (updated.length > 0) updates[`/dataAnggota/${key}/katalogProduk`] = updated;
+                else updates[`/dataAnggota/${key}`] = null;
             }
-            if (sellerProfit > 0) {
-                individualProfits[seller] = sellerProfit;
-            }
-        }
-        
-        // Buat baris data untuk CSV
-        Object.values(allDataCache).forEach(anggota => {
-    if (selectedDate === '' || anggota.tanggal === selectedDate) {
-        if (anggota.katalogProduk && anggota.katalogProduk.length > 0) {
-            anggota.katalogProduk.forEach(produk => {
-                const productNameLower = produk.namaProduk.toLowerCase();
-                const soldUnits = soldUnitsByProduct[productNameLower] || 0;
-
-                // kalau tidak ada penjualan, skip
-                if (soldUnits === 0) return;
-                
-                // Hitung keuntungan penjual & ketua
-                const sellerProfit = (produk.hargaSatuan - 500) * soldUnits;
-                const chairProfit = 500 * soldUnits;
-
-                const row = [
-                    `"${anggota.namaLengkap}"`,
-                    `"${produk.namaProduk}"`,
-                    produk.hargaSatuan,
-                    soldUnits,
-                    sellerProfit,   // sudah harga - 500
-                    chairProfit
-                ].join(";");
-                csv += row + "\n";
-            });
-        }
-    }
-});
-
-
-        // Tambahkan ringkasan total di akhir file
-        csv += "\n\nTotal Keuntungan Penjual;" + Object.values(individualProfits).reduce((sum, val) => sum + val, 0) + ";\n";
-        csv += "Total Keuntungan Ketua;" + totalChairProfit + ";\n";
-        
-        // Buat dan unduh file CSV
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", `data_penjualan_${selectedDate || 'semua'}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        });
+        database.ref().update(updates)
+            .then(() => alert('Data berhasil dihapus.'))
+            .catch(err => alert('Gagal hapus: ' + err.message));
     });
 
     filterTanggalSelect.addEventListener('change', () => {
-        const selectedDate = filterTanggalSelect.value;
-        renderTable(allDataCache, selectedDate);
+        renderTable(allDataCache, filterTanggalSelect.value);
     });
 
-    // Mengambil data dari Firebase secara real-time
-    dataRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        
-        // Menambahkan properti 'key' ke setiap objek data anggota
-        allDataCache = data ? Object.fromEntries(Object.entries(data).map(([key, value]) => [key, { ...value, key }])) : {};
-        
+    dataRef.on('value', (snap) => {
+        const data = snap.val();
+        allDataCache = data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, key: k }])) : {};
         const uniqueDates = new Set();
-        if (data) {
-            Object.values(data).forEach(item => {
-                if (item.tanggal) {
-                    uniqueDates.add(item.tanggal);
-                }
-            });
-        }
-
-        // Memperbarui pilihan tanggal di dropdown
+        if (data) Object.values(data).forEach(d => d.tanggal && uniqueDates.add(d.tanggal));
         filterTanggalSelect.innerHTML = '<option value="">Semua Tanggal</option>';
         Array.from(uniqueDates).sort().forEach(date => {
-            const option = document.createElement('option');
-            option.value = date;
-            option.textContent = date;
-            filterTanggalSelect.appendChild(option);
+            const o = document.createElement('option');
+            o.value = date; o.textContent = date;
+            filterTanggalSelect.appendChild(o);
         });
-        
-        const selectedDate = filterTanggalSelect.value;
-        renderTable(allDataCache, selectedDate);
-    }, (error) => {
-        console.error("Error membaca data: ", error);
-        loadingElement.textContent = "Terjadi kesalahan saat memuat data.";
+        renderTable(allDataCache, filterTanggalSelect.value);
     });
 
-    // Mendengarkan perubahan konfigurasi (status formulir, tanggal acara)
-    configRef.on('value', (snapshot) => {
-        const config = snapshot.val();
-        currentTanggalElement.textContent = (config && config.tanggalAcara) ? config.tanggalAcara : "Belum diatur";
-        if (config && config.formStatus !== undefined) {
-            toggleFormBtn.textContent = config.formStatus ? 'Matikan Formulir' : 'Nyalakan Formulir';
-            toggleFormBtn.classList.toggle('on', config.formStatus);
-            toggleFormBtn.classList.toggle('off', !config.formStatus);
-        } else {
-            toggleFormBtn.textContent = 'Nyalakan Formulir';
-            toggleFormBtn.classList.add('on');
+    configRef.on('value', (snap) => {
+        const cfg = snap.val();
+        currentTanggalElement.textContent = cfg?.tanggalAcara || "Belum diatur";
+        if (cfg && cfg.formStatus !== undefined) {
+            toggleFormBtn.textContent = cfg.formStatus ? 'Matikan Formulir' : 'Nyalakan Formulir';
+            toggleFormBtn.classList.toggle('on', cfg.formStatus);
+            toggleFormBtn.classList.toggle('off', !cfg.formStatus);
         }
     });
 </script>
