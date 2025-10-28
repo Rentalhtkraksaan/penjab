@@ -585,63 +585,73 @@
     }
 
     // === HITUNG KEUNTUNGAN ===
-    function calculateProfits(sellerData, totalProducts) {
-        soldUnitsByProduct = {};
-        let isValid = true;
-        let totalSoldUnits = 0;
+    // === HITUNG KEUNTUNGAN ===
+function calculateProfits(sellerData, totalProducts) {
+    soldUnitsByProduct = {};
+    let isValid = true;
+    let totalSoldUnits = 0;
 
-        soldItemsList.querySelectorAll('.jumlah-terjual').forEach(input => {
-            const value = parseInt(input.value) || 0;
-            const maxUnits = parseInt(input.getAttribute('max'));
-            const productName = input.getAttribute('data-product-name');
-            if (value > maxUnits) {
-                input.classList.add('input-error');
-                isValid = false;
-            } else {
-                input.classList.remove('input-error');
-                soldUnitsByProduct[productName] = value;
-                totalSoldUnits += value;
-            }
-        });
-
-        if (isValid) {
-            const individualProfits = {};
-            let totalSellerProfit = 0;
-
-            for (const seller in sellerData) {
-                let sellerProfit = 0;
-                for (const product in sellerData[seller]) {
-                    const productData = sellerData[seller][product];
-                    const soldUnits = soldUnitsByProduct[product] || 0;
-                    if (soldUnits > 0) {
-                        const totalUnitsInStock = totalProducts[product].totalUnit;
-                        const share = productData.jumlahUnit / totalUnitsInStock;
-                        const sellerShareOfTotalSales = share * soldUnits * productData.hargaSatuan;
-                        sellerProfit += sellerShareOfTotalSales;
-                    }
-                }
-                if (sellerProfit > 0) {
-                    individualProfits[seller] = sellerProfit;
-                    totalSellerProfit += sellerProfit;
-                }
-            }
-
-            individualSellerProfitList.innerHTML = '<h4>Keuntungan Kotor Tiap Penjual:</h4>';
-            for (const seller in individualProfits) {
-                const li = document.createElement('li');
-                li.textContent = `${seller}: ${formatRupiah(individualProfits[seller])}`;
-                individualSellerProfitList.appendChild(li);
-            }
-
-            const chairProfit = totalSoldUnits * 500;
-            totalSellerProfitElement.innerHTML = `Total Keuntungan Kotor Penjual: <strong>${formatRupiah(totalSellerProfit)}</strong>`;
-            totalChairProfitElement.innerHTML = `Keuntungan Ketua (Rp 500/unit): <strong>${formatRupiah(chairProfit)}</strong>`;
+    soldItemsList.querySelectorAll('.jumlah-terjual').forEach(input => {
+        const value = parseInt(input.value) || 0;
+        const maxUnits = parseInt(input.getAttribute('max'));
+        const productName = input.getAttribute('data-product-name');
+        if (value > maxUnits) {
+            input.classList.add('input-error');
+            isValid = false;
         } else {
-            individualSellerProfitList.innerHTML = '';
-            totalSellerProfitElement.textContent = `Terdapat input yang tidak valid!`;
-            totalChairProfitElement.textContent = '';
+            input.classList.remove('input-error');
+            soldUnitsByProduct[productName] = value;
+            totalSoldUnits += value;
         }
+    });
+
+    if (isValid) {
+        const individualProfits = {};
+        let totalSellerProfit = 0;
+
+        // Hitung total keuntungan tiap penjual
+        for (const seller in sellerData) {
+            let sellerProfit = 0;
+            for (const product in sellerData[seller]) {
+                const productData = sellerData[seller][product];
+                const soldUnits = soldUnitsByProduct[product] || 0;
+                if (soldUnits > 0) {
+                    const totalUnitsInStock = totalProducts[product].totalUnit;
+                    const share = productData.jumlahUnit / totalUnitsInStock;
+                    const sellerShareOfTotalSales = share * soldUnits * productData.hargaSatuan;
+                    sellerProfit += sellerShareOfTotalSales;
+                }
+            }
+            if (sellerProfit > 0) {
+                individualProfits[seller] = sellerProfit;
+                totalSellerProfit += sellerProfit;
+            }
+        }
+
+        // Hitung keuntungan ketua (10%)
+        const chairProfit = totalSellerProfit * 0.10;
+        const netSellerProfit = totalSellerProfit - chairProfit;
+
+        // Tampilkan hasil di UI
+        individualSellerProfitList.innerHTML = '<h4>Keuntungan Kotor Tiap Penjual:</h4>';
+        for (const seller in individualProfits) {
+            const li = document.createElement('li');
+            li.textContent = `${seller}: ${formatRupiah(individualProfits[seller])}`;
+            individualSellerProfitList.appendChild(li);
+        }
+
+        totalSellerProfitElement.innerHTML =
+            `Total Keuntungan Kotor Penjual: <strong>${formatRupiah(totalSellerProfit)}</strong><br>
+             Keuntungan Bersih Penjual (setelah potongan 10%): <strong>${formatRupiah(netSellerProfit)}</strong>`;
+        totalChairProfitElement.innerHTML =
+            `Keuntungan Ketua (10%): <strong>${formatRupiah(chairProfit)}</strong>`;
+    } else {
+        individualSellerProfitList.innerHTML = '';
+        totalSellerProfitElement.textContent = `Terdapat input yang tidak valid!`;
+        totalChairProfitElement.textContent = '';
     }
+}
+
 
     // === EVENT ===
     setTanggalBtn.addEventListener('click', () => {
